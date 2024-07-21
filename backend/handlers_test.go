@@ -45,7 +45,6 @@ func TestLoginHandler(t *testing.T) {
 		}
 	})
 
-	// test1: email exists
 	t.Run("correct everything", func(t *testing.T) {
 		reqBody := []byte(`{"email": "test@gmail.com", "password": "bozo"}`)
 		req, err := http.NewRequest("POST", "http://localhost:8080/api/v1/login", bytes.NewBuffer(reqBody))
