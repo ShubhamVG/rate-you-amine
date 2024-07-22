@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 )
@@ -22,7 +23,9 @@ func deleteTierHandler(writer http.ResponseWriter, req *http.Request) {
 
 }
 
-// TODO
+// Try to get request body and then validate it and return account id
+// and token. If something goes wrong, then [writer.Write] the required
+// response.
 func loginHandler(writer http.ResponseWriter, req *http.Request) {
 	// reading the json body of the request made
 	var reqBodyJson map[string]string
@@ -67,7 +70,6 @@ func loginHandler(writer http.ResponseWriter, req *http.Request) {
 		writer.Write([]byte(ErrWrongPassword.Error()))
 		return
 	default:
-		writer.Header().Set("Content-Type", "application/json")
 		var respBytes []byte
 
 		if respBytes, err = json.Marshal(&acc); err != nil {
@@ -76,12 +78,20 @@ func loginHandler(writer http.ResponseWriter, req *http.Request) {
 			return
 		}
 
+		writer.Header().Set("Content-Type", "application/json")
 		writer.Write(respBytes)
 	}
 }
 
-// TODO
+// Ping handler + print the request body (for testing reasons)
 func pingHandler(writer http.ResponseWriter, req *http.Request) {
+	buffer := make([]byte, 1024)
+	n, err := req.Body.Read(buffer)
+
+	if err != nil {
+	}
+
+	fmt.Println(string(buffer[:n]))
 	writer.Write([]byte("Hi!"))
 }
 
