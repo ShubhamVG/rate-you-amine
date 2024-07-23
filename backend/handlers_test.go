@@ -154,6 +154,300 @@ func TestCreateTierHandler(t *testing.T) {
 	})
 }
 
+func TestDeleteTierHandler(t *testing.T) {
+	// setup the server and database
+	const URL = "http://localhost:8080/api/v1/delete-tier"
+	srvr := &http.Server{
+		Addr:         HOST_ADDR,
+		Handler:      router,
+		ReadTimeout:  time.Second * 15,
+		WriteTimeout: time.Second * 15,
+	}
+
+	go srvr.ListenAndServe()
+	time.Sleep(10 * time.Millisecond)
+	defer srvr.Shutdown(context.TODO())
+
+	db.Close()
+	var err error
+
+	if db, err = sql.Open("sqlite3", DB_NAME); err != nil {
+		t.Fatal("Failed to open database")
+	}
+
+	defer db.Close()
+
+	t.Run("correct everything", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "0")
+		req.Header.Set(TOKEN_HEADER_NAME, "towoken")
+		req.Header.Set(TIER_ID_NAME, "1721761218317") // this is really bad
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(DONE_MSG) {
+			t.Fatal("failed deleting tier with response:", respBody)
+		}
+	})
+
+	t.Run("missing tierID", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "0")
+		req.Header.Set(TOKEN_HEADER_NAME, "towoken")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(TIER_MISSING_MSG) {
+			t.Fatal("failed deleting tier with response:", respBody)
+		}
+	})
+
+	t.Run("missing accID", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(TOKEN_HEADER_NAME, "towoken")
+		req.Header.Set(TIER_ID_NAME, "1721756708449") // this is really bad
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(ANON_RESTRICTION_MSG) {
+			t.Fatal("failed deleting tier with response:", respBody)
+		}
+	})
+
+	t.Run("missing token", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "0")
+		req.Header.Set(TIER_ID_NAME, "1721756708449") // this is really bad
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(ANON_RESTRICTION_MSG) {
+			t.Fatal("failed deleting tier with response:", respBody)
+		}
+	})
+
+	t.Run("wrong accID", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "-123981723878")
+		req.Header.Set(TOKEN_HEADER_NAME, "towoken")
+		req.Header.Set(TIER_ID_NAME, "1721756708449") // this is really bad
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(INVALID_CREDENTIALS_MSG) {
+			t.Fatal("failed deleting tier with response:", respBody)
+		}
+	})
+
+	t.Run("correct everything", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "0")
+		req.Header.Set(TOKEN_HEADER_NAME, "towokenfdsfdsfdsdssdgsdgsd")
+		req.Header.Set(TIER_ID_NAME, "1721756708449") // this is really bad
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(INVALID_CREDENTIALS_MSG) {
+			t.Fatal("failed deleting tier with response:", respBody)
+		}
+	})
+
+	t.Run("no tierID like that", func(t *testing.T) {
+		req, err := http.NewRequest(
+			"DELETE",
+			URL,
+			strings.NewReader(""),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "0")
+		req.Header.Set(TOKEN_HEADER_NAME, "towoken")
+		req.Header.Set(TIER_ID_NAME, "17217fsdfsdhfsdfsdf56708449") // this is really bad
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != ErrNoTier.Error() {
+			t.Fatal("tierID was not possible but got response:", respBody)
+		}
+	})
+}
+
 func TestLoginHandler(t *testing.T) {
 	// setup
 	const URL = "http://localhost:8080/api/v1/login"
