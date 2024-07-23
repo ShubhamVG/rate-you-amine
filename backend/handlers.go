@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 )
 
@@ -13,7 +14,8 @@ const (
 
 var (
 	ANON_RESTRICTION_MSG       = []byte("anonymous account cannot do that")
-	BAD_JSON_MSG               = []byte("Bad json")
+	BAD_JSON_MSG               = []byte("bad json")
+	DONE_MSG                   = []byte("done")
 	EMAIL_PASSWORD_MISSING_MSG = []byte("email or password missing")
 	INVALID_CREDENTIALS_MSG    = []byte("invalid credentials")
 	SERVER_FAILED_MSG          = []byte("server fked up badly")
@@ -54,13 +56,13 @@ func createTierHandler(writer http.ResponseWriter, req *http.Request) {
 func deleteTierHandler(writer http.ResponseWriter, req *http.Request) {
 	accIDString := req.Header.Get(ID_NAME)
 	token := req.Header.Get(TOKEN_HEADER_NAME)
-	tierID := req.Header.Get(TIER_ID_NAME)
+	tierIDString := req.Header.Get(TIER_ID_NAME)
 
-	if tierID == "" {
+	if tierIDString == "" {
 		writer.WriteHeader(http.StatusBadRequest)
 		writer.Write(TIER_MISSING_MSG)
 		return
-	} else if accIDString == "" {
+	} else if accIDString == "" || token == "" {
 		writer.WriteHeader(http.StatusServiceUnavailable)
 		writer.Write(ANON_RESTRICTION_MSG)
 		return
@@ -70,11 +72,18 @@ func deleteTierHandler(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if err := deleteFromAccount(tierID); err != nil {
+	if err := deleteFromAccount(accIDString, tierIDString); err == ErrNoTier {
+		writer.WriteHeader(http.StatusNotFound)
+		writer.Write([]byte(ErrNoTier.Error()))
+		return
+	} else if err != nil {
+		log.Println(err)
 		writer.WriteHeader(http.StatusInternalServerError)
 		writer.Write(SERVER_FAILED_MSG)
 		return
 	}
+
+	writer.Write(DONE_MSG)
 }
 
 // Try to get request body and then validate it and return account id
