@@ -74,6 +74,84 @@ func TestCreateTierHandler(t *testing.T) {
 			t.Fatal("Why did tier add failed?")
 		}
 	})
+
+	t.Run("incorrect id", func(t *testing.T) {
+		tier := `me=akise&simran=gasai&ak=yuuki`
+		req, err := http.NewRequest(
+			"POST",
+			URL,
+			strings.NewReader(tier),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "-12321312344546457567") // gibberish id
+		req.Header.Set(TOKEN_HEADER_NAME, "towoken")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(INVALID_CREDENTIALS_MSG) {
+			t.Fatal("Incorrect id sneaked its way in")
+		}
+	})
+
+	t.Run("incorrect token", func(t *testing.T) {
+		tier := `me=akise&simran=gasai&ak=yuuki`
+		req, err := http.NewRequest(
+			"POST",
+			URL,
+			strings.NewReader(tier),
+		)
+
+		if err != nil {
+			t.Fatal("Failed to create request")
+		}
+
+		req.Header.Set(
+			"Content-Type",
+			"application/x-www-form-urlencoded; charset=utf-8",
+		)
+		req.Header.Set(ID_NAME, "0")
+		req.Header.Set(TOKEN_HEADER_NAME, "dskjfhkjsdsdfkdsfdskfds")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			t.Fatal("Client failed to make request", err)
+		}
+
+		respBodyBytes, err := io.ReadAll(resp.Body)
+
+		if err != nil {
+			t.Fatal("io failed to read response body")
+		}
+
+		respBody := string(respBodyBytes)
+
+		if respBody != string(INVALID_CREDENTIALS_MSG) {
+			t.Fatal("Incorrect token sneaked in")
+		}
+	})
 }
 
 func TestLoginHandler(t *testing.T) {
