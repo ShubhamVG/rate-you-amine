@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"strconv"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -14,9 +15,10 @@ type Account struct {
 }
 
 var (
-	ErrWrongPassword = errors.New("wrong password")
-	ErrSqlFailed     = errors.New("sql failed")
 	ErrNoAccount     = errors.New("no account found with that email")
+	ErrNoTier        = errors.New("no tier like that")
+	ErrSqlFailed     = errors.New("sql failed")
+	ErrWrongPassword = errors.New("wrong password")
 )
 
 func accountFromCredentials(email, password string) (*Account, error) {
@@ -52,7 +54,7 @@ func addTierToAccount(accIDString, tierString string) (string, error) {
 	}
 
 	timeRN := time.Now().UnixMilli()
-	generatedURL := "change-this-pls" // TODO: should be obvious
+	generatedURL := strconv.FormatInt(timeRN, 36) // TODO: change
 
 	_, err = tx.Exec(
 		`INSERT INTO tiers (id, accID, tier, url) VALUES (?, ?, ?, ?)`, timeRN, accIDString, tierString, generatedURL,
@@ -83,21 +85,39 @@ func authenticate(idString, token string) bool {
 }
 
 // DOES NOT CHECK VALIDATION
-func deleteFromAccount(tierID string) error {
+//
+// Bug: will return success even if id wasn't correct
+func deleteFromAccount(accIDString, tierIDString string) error {
 	tx, err := db.Begin()
 
 	if err != nil {
 		return err
 	}
 
-	_, err = tx.Exec(`DELETE FROM tiers WHERE tierID = ?`, tierID)
+	row := db.QueryRow(
+		`SELECT * FROM tiers WHERE id = ? AND accID = ?`,
+		tierIDString, accIDString,
+	)
+
+	err = row.Scan()
+
+	if err == sql.ErrNoRows {
+		return ErrNoTier
+	}
+
+	_, err = tx.Exec(
+		`DELETE FROM tiers WHERE id = ? AND accID = ?`,
+		tierIDString, accIDString,
+	)
 
 	if err != nil {
 		tx.Rollback()
 		return err
 	}
 
-	tx.Commit()
+	if err = tx.Commit(); err != nil {
+		return err
+	}
 
 	return nil
 }
