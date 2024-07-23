@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"errors"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -10,8 +11,6 @@ import (
 type Account struct {
 	ID    int
 	Token string
-	// Email   string
-	// Session string
 }
 
 var (
@@ -22,7 +21,10 @@ var (
 
 func accountFromCredentials(email, password string) (*Account, error) {
 	hashedSaltedPassword := password // TODO
-	row := db.db.QueryRow("SELECT id, hash, token FROM users WHERE email = ?", email)
+	row := db.QueryRow(
+		"SELECT id, hash, token FROM users WHERE email = ?",
+		email,
+	)
 
 	var id int
 	var hash string
@@ -39,4 +41,63 @@ func accountFromCredentials(email, password string) (*Account, error) {
 	}
 
 	return nil, ErrWrongPassword
+}
+
+// DOES NOT CHECK VALIDATION
+func addTierToAccount(accIDString, tierString string) (string, error) {
+	tx, err := db.Begin()
+
+	if err != nil {
+		return "", err
+	}
+
+	timeRN := time.Now().UnixMilli()
+	generatedURL := "change-this-pls" // TODO: should be obvious
+
+	_, err = tx.Exec(
+		`INSERT INTO tiers (id, accID, tier, url) VALUES (?, ?, ?, ?)`, timeRN, accIDString, tierString, generatedURL,
+	)
+
+	if err != nil {
+		tx.Rollback()
+		return "", err
+	}
+
+	tx.Commit()
+
+	return generatedURL, nil
+}
+
+// Return whether the token corresponds to the given [idString] or not
+func authenticate(idString, token string) bool {
+	row := db.QueryRow("SELECT token FROM users WHERE id = ?", idString)
+	var fetchedToken string
+
+	if err := row.Scan(&fetchedToken); err == sql.ErrNoRows {
+		return false
+	} else if token == fetchedToken {
+		return true
+	}
+
+	return false
+}
+
+// DOES NOT CHECK VALIDATION
+func deleteFromAccount(tierID string) error {
+	tx, err := db.Begin()
+
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`DELETE FROM tiers WHERE tierID = ?`, tierID)
+
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	tx.Commit()
+
+	return nil
 }

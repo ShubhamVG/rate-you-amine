@@ -1,30 +1,50 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
+	_ "github.com/mattn/go-sqlite3"
 )
 
-var db = &Database{dbName: "database.db"}
+const (
+	HOST_ADDR = ":8080"
+	DB_NAME   = "database.db"
+)
+
+var (
+	db     *sql.DB
+	router *mux.Router
+)
 
 func init() {
-	if err := db.init(); err != nil {
-		log.Fatalln("Failed to init db")
+	var err error
+
+	if db, err = sql.Open("sqlite3", DB_NAME); err != nil {
+		log.Fatalln("Failed to open database")
 	}
+
+	router = mux.NewRouter()
+	router.HandleFunc("/api/v1/ping", pingHandler).Methods("GET")
+	router.HandleFunc("/api/v1/login", loginHandler).Methods("POST")
+	router.HandleFunc("/api/v1/signup", signUpHandler).Methods("POST")
+	router.HandleFunc("/api/v1/tier/{identifier}", tierHandler).Methods("GET")
+	router.HandleFunc("/api/v1/create-tier", createTierHandler).Methods("POST")
+	router.HandleFunc("/api/v1/delete-tier", deleteTierHandler).Methods("DELETE")
 }
 
 func main() {
-	defer db.close()
+	defer db.Close()
 
-	router := mux.NewRouter()
-	router.HandleFunc("/api/v1/ping", pingHandler)
-	router.HandleFunc("/api/v1/login", loginHandler).Methods("POST")
-	router.HandleFunc("/api/v1/signup", signUpHandler)
-	router.HandleFunc("/api/v1/tier/{identifier}", tierHandler) // TODO: name
-	router.HandleFunc("/api/v1/create-tier", createTierHandler)
-	router.HandleFunc("/api/v1/delete-tier", deleteTierHandler)
+	srvr := &http.Server{
+		Addr:         HOST_ADDR,
+		Handler:      router,
+		ReadTimeout:  time.Second * 15,
+		WriteTimeout: time.Second * 15,
+	}
 
-	log.Fatalln(http.ListenAndServe(":8080", router))
+	log.Fatalln(srvr.ListenAndServe())
 }

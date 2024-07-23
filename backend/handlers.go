@@ -2,56 +2,99 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 )
 
 const (
-	BAD_JSON_MSG               = "Bad json"
-	EMAIL_PASSWORD_MISSING_MSG = "Email or password missing"
-	SERVER_FAILED_MSG          = "server fked up badly"
+	ID_NAME           = "User-ID"
+	TIER_ID_NAME      = "X-Tier-ID"
+	TOKEN_HEADER_NAME = "Authority"
 )
 
-// TODO
-func createTierHandler(writer http.ResponseWriter, req *http.Request) {
+var (
+	ANON_RESTRICTION_MSG       = []byte("anonymous account cannot do that")
+	BAD_JSON_MSG               = []byte("Bad json")
+	EMAIL_PASSWORD_MISSING_MSG = []byte("email or password missing")
+	INVALID_CREDENTIALS_MSG    = []byte("invalid credentials")
+	SERVER_FAILED_MSG          = []byte("server fked up badly")
+	TIER_ADD_FAILED_MSG        = []byte("tier couldn't be added")
+	TIER_MISSING_MSG           = []byte("missing tier")
+)
 
+// Validate token, or if null, add it as temp but error if token is invalid.
+//
+// Add tier to database. Tier is a json that looks like:
+//
+// {"tier" :[{"u1": "c1"}, {"u2": "c2"}, ...]}
+func createTierHandler(writer http.ResponseWriter, req *http.Request) {
+	accIDString := req.Header.Get(ID_NAME)
+	token := req.Header.Get(TOKEN_HEADER_NAME)
+
+	if !authenticate(accIDString, token) {
+		writer.WriteHeader(http.StatusUnauthorized)
+		writer.Write(INVALID_CREDENTIALS_MSG)
+		return
+	}
+
+	req.ParseForm()
+	tierString := req.Form.Encode()
+
+	idURL, err := addTierToAccount(accIDString, tierString)
+
+	if err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write(TIER_ADD_FAILED_MSG)
+		return
+	}
+
+	writer.Write([]byte(idURL))
 }
 
 // TODO
 func deleteTierHandler(writer http.ResponseWriter, req *http.Request) {
+	accIDString := req.Header.Get(ID_NAME)
+	token := req.Header.Get(TOKEN_HEADER_NAME)
+	tierID := req.Header.Get(TIER_ID_NAME)
 
+	if tierID == "" {
+		writer.WriteHeader(http.StatusBadRequest)
+		writer.Write(TIER_MISSING_MSG)
+		return
+	} else if accIDString == "" {
+		writer.WriteHeader(http.StatusServiceUnavailable)
+		writer.Write(ANON_RESTRICTION_MSG)
+		return
+	} else if !authenticate(accIDString, token) {
+		writer.WriteHeader(http.StatusUnauthorized)
+		writer.Write(INVALID_CREDENTIALS_MSG)
+		return
+	}
+
+	if err := deleteFromAccount(tierID); err != nil {
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write(SERVER_FAILED_MSG)
+		return
+	}
 }
 
 // Try to get request body and then validate it and return account id
 // and token. If something goes wrong, then [writer.Write] the required
 // response.
+//
+// Proper request body should look like:
+// ```{"email": "test@email.com", "password": "password"}
 func loginHandler(writer http.ResponseWriter, req *http.Request) {
-	// reading the json body of the request made
-	var reqBodyJson map[string]string
-	buffer := make([]byte, 1024)
-	n, err := req.Body.Read(buffer)
+	req.ParseForm()
+	email := req.Form.Get("email")
+	password := req.Form.Get("password")
 
-	// checking error while reading request body, err == io.EOF is unnecessary
-	if err != io.EOF && err != nil {
-		writer.WriteHeader(http.StatusInternalServerError)
-		writer.Write([]byte(SERVER_FAILED_MSG))
-		return
-	}
-
-	// reading json with fail check
-	if err = json.Unmarshal(buffer[:n], &reqBodyJson); err != nil {
-		writer.Write([]byte(BAD_JSON_MSG))
-		return
-	}
-
-	// fetching email and password
-	email, emailOk := reqBodyJson["email"]
-	password, passwordOk := reqBodyJson["password"]
+	// TODO: regex validate email address and password
+	emailOk := email != ""
+	passwordOk := password != ""
 
 	if !(emailOk && passwordOk) {
 		writer.WriteHeader(http.StatusBadRequest)
-		writer.Write([]byte(EMAIL_PASSWORD_MISSING_MSG))
+		writer.Write(EMAIL_PASSWORD_MISSING_MSG)
 		return
 	}
 
@@ -63,7 +106,7 @@ func loginHandler(writer http.ResponseWriter, req *http.Request) {
 		return
 	case ErrSqlFailed:
 		writer.WriteHeader(http.StatusInternalServerError)
-		writer.Write([]byte(SERVER_FAILED_MSG))
+		writer.Write(SERVER_FAILED_MSG)
 		return
 	case ErrWrongPassword:
 		writer.WriteHeader(http.StatusUnauthorized)
@@ -74,7 +117,8 @@ func loginHandler(writer http.ResponseWriter, req *http.Request) {
 
 		if respBytes, err = json.Marshal(&acc); err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)
-			writer.Write([]byte(SERVER_FAILED_MSG))
+			writer.Write(
+				SERVER_FAILED_MSG)
 			return
 		}
 
@@ -85,17 +129,13 @@ func loginHandler(writer http.ResponseWriter, req *http.Request) {
 
 // Ping handler + print the request body (for testing reasons)
 func pingHandler(writer http.ResponseWriter, req *http.Request) {
-	buffer := make([]byte, 1024)
-	n, err := req.Body.Read(buffer)
-
-	if err != nil {
-	}
-
-	fmt.Println(string(buffer[:n]))
 	writer.Write([]byte("Hi!"))
 }
 
-// TODO
+// Try to get request body and then check whether an account already exists
+// with same email. If not, add an account with a generated token and ID.
+// If something goes wrong, then [writer.Write] the required
+// response.
 func signUpHandler(writer http.ResponseWriter, req *http.Request) {
 
 }
