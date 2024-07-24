@@ -1,0 +1,2 @@
+I know the project directory sucks, the tests suck too and the everything looks so rushed.
+I am aware. I did all of that in less than a day. That's why it sucks. You need not remind me. And yes, there will be refactoring but not until I'm done with the frontend.
