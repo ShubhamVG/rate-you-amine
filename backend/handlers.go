@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -52,7 +54,6 @@ func createTierHandler(writer http.ResponseWriter, req *http.Request) {
 	writer.Write([]byte(idURL))
 }
 
-// TODO
 func deleteTierHandler(writer http.ResponseWriter, req *http.Request) {
 	accIDString := req.Header.Get(ID_NAME)
 	token := req.Header.Get(TOKEN_HEADER_NAME)
@@ -146,10 +147,21 @@ func pingHandler(writer http.ResponseWriter, req *http.Request) {
 // If something goes wrong, then [writer.Write] the required
 // response.
 func signUpHandler(writer http.ResponseWriter, req *http.Request) {
-
 }
 
 // TODO
 func tierHandler(writer http.ResponseWriter, req *http.Request) {
+	vars := mux.Vars(req)
+	tierURL := vars["identifier"]
 
+	tier := getTier(tierURL)
+
+	if tier == "" {
+		writer.WriteHeader(http.StatusNotFound)
+		writer.Write(TIER_MISSING_MSG)
+		return
+	}
+
+	writer.WriteHeader(http.StatusFound)
+	writer.Write([]byte(tier))
 }
